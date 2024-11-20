@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    
+    .loader {
+      display: none;
+      margin: 20px auto;
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+    
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 1.2em;
+    }
+    
+    .card iframe {
+      display: block;
+      margin: 8px 0;
+    }
+    
+    .card .price {
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .like-button {
+      cursor: pointer;
+      color: #ff6347;
+      font-size: 1.5em;
+    }
+    
+    .confirmation-dialog {
+      display: none;
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin: 16px 0;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+    }
+    
+    .form-container {
+      display: none;
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin-top: 16px;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    
+    .form-container input {
+      margin: 8px 0;
+      width: calc(100% - 20px);
+      padding: 8px;
+    }
+    
+    .form-container button {
+      padding: 8px 16px;
+      cursor: pointer;
+      border: none;
+      background-color: #3498db;
+      color: white;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  
+  <!-- Loader -->
+  <div id="loader" class="loader"></div>
+  
+  <!-- Data Cards -->
+  <div id="data-container"></div>
+  
+  <!-- Confirmation Dialog -->
+  <div id="confirmation-dialog" class="confirmation-dialog">
+    <p>Do you want to like this video?</p>
+    <button onclick="handleConfirmation(true)">Yes</button>
+    <button onclick="handleConfirmation(false)">No</button>
+  </div>
+  
+  <!-- Form Container -->
+  <div id="form-container" class="form-container">
+    <h3>Submit Your Details</h3>
+    <input type="text" id="name" placeholder="Enter your name" required>
+    <input type="email" id="email" placeholder="Enter your email" required>
+    <input type="number" id="budget" placeholder="Enter your budget" required>
+    <button id="get-otp-btn" onclick="getOtp()" >Get OTP</button>
+    <input type="number" id="otp" placeholder="Enter OTP" style="display:none;">
+    <button id="verify-otp-btn" onclick="verifyOtp()" style="display:none;">Verify OTP</button>
+    <div id="otp-error" style="display:none; color:red;"></div>
+  </div>
+  
+  <script>
+    const DEPLOY_URL = 'https://script.google.com/macros/s/AKfycbwzPIoJmRWv_YTMo_tgRzhrIGE6M1j071FJn9QO8mNsssAnSzHQgmsveu0vxvLxg2KjNw/exec';
+    
+    let currentVideoUrl = '';
+    
+    function calculateTimeDifference(dateString) {
+      const currentDate = new Date();
+      const pastDate = new Date(dateString);
+      const difference = currentDate - pastDate;
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const months = Math.floor(difference / (1000 * 60 * 60 * 24 * 30));
+      const years = Math.floor(difference / (1000 * 60 * 60 * 24 * 365));
+
+      if (days < 1) {
+        return "Few hours ago";
+      } else if (years > 0) {
+        return `${years} years, ${months % 12} months ago`;
+      } else if (months > 0) {
+        return `${months} months, ${days % 30} days ago`;
+      } else {
+        return `${days} days ago`;
+      }
+    }
+
+    async function fetchData() {
+      const loader = document.getElementById('loader');
+      const container = document.getElementById('data-container');
+
+      try {
+        loader.style.display = 'block';
+        const response = await fetch(DEPLOY_URL, {
+          method: 'POST',
+          body: new URLSearchParams({ action: 'fetch' }),
+        });
+        const data = await response.json();
+
+        container.innerHTML = '';
+        data.forEach((item) => {
+          const timeDifference = calculateTimeDifference(item.date);
+          const card = `
+            <div class="card">
+              <h3>${item.title}</h3>
+              <div class="time">${timeDifference}</div>
+              <iframe width="300" height="170" src="${item.videoUrl}" frameborder="0" allowfullscreen></iframe>
+              <div class="price">Price: ₹${item.price}</div>
+              <span class="like-button" onclick="likeVideo('${item.videoUrl}')">❤️</span>
+            </div>
+          `;
+          container.innerHTML += card;
+        });
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        container.innerHTML = '<p>Failed to load data. Please try again later.</p>';
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    function likeVideo(videoUrl) {
+      currentVideoUrl = videoUrl;
+      const confirmationDialog = document.getElementById('confirmation-dialog');
+      confirmationDialog.style.display = 'block';
+    }
+
+    function handleConfirmation(confirm) {
+      const confirmationDialog = document.getElementById('confirmation-dialog');
+      const formContainer = document.getElementById('form-container');
+      confirmationDialog.style.display = 'none';
+      if (confirm) {
+        formContainer.style.display = 'block';
+      }
+    }
+
+    async function submitForm() {
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const budget = document.getElementById('budget').value;
+
+      if (name && email && budget) {
+        document.getElementById('submit-btn').style.display = 'none';
+        document.getElementById('get-otp-btn').style.display = 'block';
+      }
+    }
+
+    async function getOtp() {
+      const email = document.getElementById('email').value;
+
+      try {
+        const response = await fetch(DEPLOY_URL, {
+          method: 'POST',
+          body: new URLSearchParams({ action: 'generateOtp', email: email }),
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          document.getElementById('get-otp-btn').style.display = 'none';
+          document.getElementById('otp').style.display = 'block';
+          document.getElementById('verify-otp-btn').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error generating OTP:', error);
+      }
+    }
+
+    async function verifyOtp() {
+      const otp = document.getElementById('otp').value;
+      const email = document.getElementById('email').value;
+
+      try {
+        const response = await fetch(DEPLOY_URL, {
+          method: 'POST',
+          body: new URLSearchParams({ action: 'verifyOtp', otp: otp, email: email }),
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          const name = document.getElementById('name').value;
+          const budget = document.getElementById('budget').value;
+          const videoUrl = currentVideoUrl;
+
+          await fetch(DEPLOY_URL, {
+            method: 'POST',
+            body: new URLSearchParams({
+              action: 'submitForm',
+              name: name,
+              email: email,
+              budget: budget,
+              videoUrl: videoUrl,
+            }),
+          });
+
+          alert('Details submitted successfully!');
+          document.getElementById('form-container').style.display = 'none';
+        } else {
+          document.getElementById('otp-error').style.display = 'block';
+          document.getElementById('otp-error').innerText = 'Invalid OTP!';
+        }
+      } catch (error) {
+        console.error('Error verifying OTP:', error);
+      }
+    }
+    fetchData();
+  </script>
+</body>
+</html>
